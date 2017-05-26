@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strconv"
 	"bytes"
+	"flag"
+	"log"
 )
 
 func TestAndAnalyzePackageCoverage(path string) {
@@ -70,25 +72,30 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 
 func execGoTestCoverProfile(path string, covName string) {
 	if runtime.GOOS == "windows" {
-		executeCmdAndWriteResult("cmd", PathAdapterSystem(path), "/C", `go`, "test", SplitPath(path, "src/")[1], "-coverprofile="+covName+".out")
+		executeGoTestProfileCmd("cmd", PathAdapterSystem(path), "/C", `go`, "test", SplitPath(path, "src/")[1], "-coverprofile="+covName+".out")
 	} else if runtime.GOOS == "linux" {
-		executeCmdAndWriteResult("go", PathAdapterSystem(path), "test", SplitPath(path, "src/")[1], "-coverprofile="+covName+".out")
+		executeGoTestProfileCmd("go", PathAdapterSystem(path), "test", SplitPath(path, "src/")[1], "-coverprofile="+covName+".out")
 	}
 }
 
 func execGoToolCover(path string, covName string) {
 	if runtime.GOOS == "windows" {
-		execCmdAndWriteResultAfterClean("cmd", PathAdapterSystem(path), PathAdapterSystem(path+"/"+covName+".result"), "/C", `go`, "tool", "cover", "-func="+covName+".out")
+		execGoToolCmdAndWriteResultAfterClean("cmd", PathAdapterSystem(path), PathAdapterSystem(path+"/"+covName+".result"), "/C", `go`, "tool", "cover", "-func="+covName+".out")
 	} else if runtime.GOOS == "linux" {
-		execCmdAndWriteResultAfterClean("go", PathAdapterSystem(path), PathAdapterSystem(path+"/"+covName+".result"), "tool", "cover", "-func="+covName+".out")
+		execGoToolCmdAndWriteResultAfterClean("go", PathAdapterSystem(path), PathAdapterSystem(path+"/"+covName+".result"), "tool", "cover", "-func="+covName+".out")
 	}
 }
 
-func executeCmdAndWriteResult(cmdName string, cmdExePath string, args ... string) bool {
+func executeGoTestProfileCmd(cmdName string, cmdExePath string, args ... string) bool {
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = cmdExePath
 	output, err := cmd.CombinedOutput()
-	printOutput(output)
+	ignore := flag.Arg(1)
+	if len(ignore) != 0 && ignore == "--ignore" {
+		printIgnoreIfTestFails(output)
+	} else {
+		printPanicIfTestFails(output, cmdExePath)
+	}
 	if err != nil {
 		//logger.CheckError(err, "Failed to execute command ["+cmdName+"] ")
 		return false
@@ -96,7 +103,7 @@ func executeCmdAndWriteResult(cmdName string, cmdExePath string, args ... string
 	return true
 }
 
-func execCmdAndWriteResultAfterClean(cmdName string, cmdExcPath string, file_path string, args ... string) bool {
+func execGoToolCmdAndWriteResultAfterClean(cmdName string, cmdExcPath string, file_path string, args ... string) bool {
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = cmdExcPath
 	output, err := cmd.CombinedOutput()
@@ -161,9 +168,31 @@ func PathAppend(path ... string) string {
 	return buffer.String()
 }
 
-//func PanicIfTestFails(outs []byte) {
-//	line, _ := bytes.NewBuffer(outs).ReadString("\n")
-//}
+func panicIfTestFails(outs []byte, cmdExePath string) {
+	b := bytes.NewBuffer(outs)
+	line, err := b.ReadString('\n')
+	for ; err == nil; line, err = b.ReadString('\n') {
+		outline := string(outs)
+		if !strings.Contains(outline, "ok") && !strings.Contains(outline, cmdExePath) {
+			if strings.Contains(line, "--- FAIL") {
+				log.Fatalf("UT failed: %s", line)
+			}
+		}
+	}
+}
+
+func printIgnoreIfTestFails(outs []byte) {
+	if len(outs) > 0 {
+		fmt.Printf("%s\n", string(outs))
+	}
+}
+
+func printPanicIfTestFails(outs []byte, cmdExePath string) {
+	if len(outs) > 0 {
+		fmt.Printf("%s\n", string(outs))
+		panicIfTestFails(outs, cmdExePath)
+	}
+}
 
 func printOutput(outs []byte) {
 	if len(outs) > 0 {
