@@ -72,9 +72,9 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 
 func execGoTestCoverProfile(path string, covName string) {
 	if runtime.GOOS == "windows" {
-		executeGoTestProfileCmd("cmd", PathAdapterSystem(path), "/C", `go`, "test", SplitPath(path, "src/")[1], "-coverprofile="+covName+".out")
+		executeGoTestProfileCmd("cmd", PathAdapterSystem(path), "/C", `go`, "test", "-v", "-coverprofile="+covName+".out")
 	} else if runtime.GOOS == "linux" {
-		executeGoTestProfileCmd("go", PathAdapterSystem(path), "test", SplitPath(path, "src/")[1], "-coverprofile="+covName+".out")
+		executeGoTestProfileCmd("go", PathAdapterSystem(path), "test", "-v", "-coverprofile="+covName+".out")
 	}
 }
 
@@ -171,13 +171,17 @@ func PathAppend(path ... string) string {
 func panicIfTestFails(outs []byte, cmdExePath string) {
 	b := bytes.NewBuffer(outs)
 	line, err := b.ReadString('\n')
+	fmt.Println(bytes.NewReader(outs).ReadAt(outs, int64(1)))
 	for ; err == nil; line, err = b.ReadString('\n') {
-		outline := string(outs)
-		if !strings.Contains(outline, "ok") && !strings.Contains(outline, cmdExePath) {
-			if strings.Contains(line, "--- FAIL") {
-				log.Fatalf("UT failed: %s", line)
-			}
+		if !strings.Contains(line, "ok") && !strings.Contains(line, cmdExePath) {
+			failUts(line)
 		}
+	}
+}
+
+func failUts(line string) {
+	if strings.Contains(line, "--- FAIL") {
+		log.Fatalf("UT failed: %s", line)
 	}
 }
 
