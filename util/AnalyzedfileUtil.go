@@ -11,6 +11,7 @@ import (
 	"strings"
 	"strconv"
 	"unicode"
+	"github.com/wenpos/ugot/util"
 )
 
 //注意关闭资源，使用defer
@@ -107,7 +108,7 @@ func ParseAnalysisFile(file_path string)  {
 	totalLines := 0
 	totalCoveredLines := 0
 	for ; err == nil; line, err = b.ReadString('\n') {
-		if len(line) != 0 && strings.Contains(line, PathAdapterSystem("/")) {
+		if len(line) != 0 && strings.Contains(line, util.PathAdapterSystem("/")) {
 			parse := strings.Split(line, ":")
 			tempTotal, _ := strconv.Atoi(parse[1])
 			totalLines = totalLines + tempTotal

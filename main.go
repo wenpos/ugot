@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"ugot/util"
 	"fmt"
 )
 
@@ -12,5 +11,5 @@ func main() {
 		fmt.Println("ERROR: A path parmeter needed.")
 	}
 	root_path := flag.Arg(0)
-	util.TestAndAnalyzePackageCoverage(root_path)
+	TestAndAnalyzePackageCoverage(root_path)
 }

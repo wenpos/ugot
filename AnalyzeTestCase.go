@@ -1,4 +1,4 @@
-package util
+package main
 
 import (
 	"os"
@@ -13,13 +13,14 @@ import (
 	"bytes"
 	"flag"
 	"log"
+	"ugot/util"
 )
 
 func TestAndAnalyzePackageCoverage(path string) {
 	resultFile := getCoverageResultFilePath(PathAdapterSystem(path))
 	os.Remove(resultFile)
 	filepath.Walk(PathAdapterSystem(path), analyzePackageCoverage)
-	ParseAnalysisFile(PathAdapterSystem(resultFile))
+	util.ParseAnalysisFile(PathAdapterSystem(resultFile))
 	CleanAnalyzedPackageFile(PathAdapterSystem(path))
 }
 
@@ -48,15 +49,15 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 			execGoTestCoverProfile(path, info.Name())
 			if hasSpecificFiles(path, ".out") {
 				//return code line count of current package
-				_, packageLineCountStr := GetGoFilesLineCount(PathAdapterSystem(path+"/"+info.Name()+".out"), info.Name())
+				_, packageLineCountStr := util.GetGoFilesLineCount(PathAdapterSystem(path+"/"+info.Name()+".out"), info.Name())
 				//go tool generate every file coverage and write the result for analysis
 				execGoToolCover(path, info.Name())
 				packageLineCount := float64(packageLineCountStr["total"])
 				if hasSpecificFiles(path, ".result") {
 					//every package coverage
-					packageLineCoverage := GetGoCovResultTotalCoverage(PathAdapterSystem(path + "/" + info.Name() + ".result"))
+					packageLineCoverage := util.GetGoCovResultTotalCoverage(PathAdapterSystem(path + "/" + info.Name() + ".result"))
 					coveredLineCount := packageLineCount * (packageLineCoverage / 100)
-					WriteStringFile(resultFile, SplitPath(path, "src/")[1] + ":"+
+					util.WriteStringFile(resultFile, SplitPath(path, "src/")[1] + ":"+
 						strconv.Itoa(packageLineCountStr["total"])+ ":"+
 						strconv.FormatFloat(coveredLineCount, 'f', 0, 64)+ ":"+
 						strconv.FormatFloat(packageLineCoverage, 'f', 1, 64)+ "%")
@@ -107,7 +108,7 @@ func execGoToolCmdAndWriteResultAfterClean(cmdName string, cmdExcPath string, fi
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = cmdExcPath
 	output, err := cmd.CombinedOutput()
-	WriteBytesFileAfterClean(file_path, output)
+	util.WriteBytesFileAfterClean(file_path, output)
 	printOutput(output)
 	if err != nil {
 		logger.CheckError(err, "Failed to execute command ["+cmdName+"] ")
