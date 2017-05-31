@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strconv"
 	"bytes"
-	"flag"
 	"log"
 	"ugot/util"
 )
@@ -47,28 +46,32 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 			resultFile := getCoverageResultFilePath(path)
 			//go test to generate .out file for analysis
 			execGoTestCoverProfile(path, info.Name())
-			if hasSpecificFiles(path, ".out") {
-				//return code line count of current package
-				_, packageLineCountStr := util.GetGoFilesLineCount(PathAdapterSystem(path+"/"+info.Name()+".out"), info.Name())
-				//go tool generate every file coverage and write the result for analysis
-				execGoToolCover(path, info.Name())
-				packageLineCount := float64(packageLineCountStr["total"])
-				if hasSpecificFiles(path, ".result") {
-					//every package coverage
-					packageLineCoverage := util.GetGoCovResultTotalCoverage(PathAdapterSystem(path + "/" + info.Name() + ".result"))
-					coveredLineCount := packageLineCount * (packageLineCoverage / 100)
-					util.WriteStringFile(resultFile, SplitPath(path, "src/")[1] + ":"+
-						strconv.Itoa(packageLineCountStr["total"])+ ":"+
-						strconv.FormatFloat(coveredLineCount, 'f', 0, 64)+ ":"+
-						strconv.FormatFloat(packageLineCoverage, 'f', 1, 64)+ "%")
-				}
-
-			} else {
-				logger.GetLogger().Error("Analysis Failed in package [" + path + "]")
-			}
+			analyzeCoverProfile(path, info, resultFile)
 		}
 	}
 	return err
+}
+
+func analyzeCoverProfile(path string, info os.FileInfo, resultFile string) {
+	if hasSpecificFiles(path, ".out") {
+		//return code line count of current package
+		_, packageLineCountStr := util.GetGoFilesLineCount(PathAdapterSystem(path+"/"+info.Name()+".out"), info.Name())
+		//go tool generate every file coverage and write the result for analysis
+		execGoToolCover(path, info.Name())
+		packageLineCount := float64(packageLineCountStr["total"])
+		if hasSpecificFiles(path, ".result") {
+			//every package coverage
+			packageLineCoverage := util.GetGoCovResultTotalCoverage(PathAdapterSystem(path + "/" + info.Name() + ".result"))
+			coveredLineCount := packageLineCount * (packageLineCoverage / 100)
+			util.WriteStringFile(resultFile, SplitPath(path, "src/")[1] + ":"+
+				strconv.Itoa(packageLineCountStr["total"])+ ":"+
+				strconv.FormatFloat(coveredLineCount, 'f', 0, 64)+ ":"+
+				strconv.FormatFloat(packageLineCoverage, 'f', 1, 64)+ "%")
+		}
+
+	} else {
+		logger.GetLogger().Error("Analysis Failed in package [" + path + "]")
+	}
 }
 
 func execGoTestCoverProfile(path string, covName string) {
@@ -91,8 +94,7 @@ func executeGoTestProfileCmd(cmdName string, cmdExePath string, args ... string)
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = cmdExePath
 	output, err := cmd.CombinedOutput()
-	ignore := flag.Arg(1)
-	if len(ignore) != 0 && ignore == "--ignore" {
+	if xerror {
 		printIgnoreIfTestFails(output)
 	} else {
 		printPanicIfTestFails(output, cmdExePath)

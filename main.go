@@ -2,14 +2,18 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 )
 
+var xerror bool
+
 func main() {
+	root_path := flag.String("path", "", "[required] package path")
+	ignore_error := flag.Bool("xerror", false, "[true] ignore failed test case, [false] not ignore failed test case")
 	flag.Parse()
-	if len(flag.Args()) == 0 {
-		fmt.Println("ERROR: A path parmeter needed.")
+	if *root_path == "" {
+		log.Fatalf("ERROR: A package path needed, use --help to cat ugot parmeters")
 	}
-	root_path := flag.Arg(0)
-	TestAndAnalyzePackageCoverage(root_path)
+	xerror = *ignore_error
+	TestAndAnalyzePackageCoverage(*root_path)
 }
