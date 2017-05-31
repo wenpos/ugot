@@ -42,6 +42,24 @@ func matchAndDeleteFiles(err error, info os.FileInfo, path string, pattern strin
 
 func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 	if info.IsDir() {
+		//exclude specific packages
+		packge_path := SplitPath(path, "src/")[1]
+		if len(xpkg) != 0 && strings.Contains(xpkg, ",") {
+			excludes := SplitPath(xpkg, ",")
+			for _, v := range excludes {
+				if packge_path == PathAdapterSystem(v) {
+					fmt.Println("Exclude package: " + packge_path)
+					return filepath.SkipDir
+				}
+			}
+		}
+		if (len(xpkg) != 0 && !strings.Contains(xpkg, ",")) {
+			if packge_path == PathAdapterSystem(xpkg) {
+				fmt.Println("Exclude package: " + packge_path)
+				return filepath.SkipDir
+			}
+		}
+		//execute go test in packages
 		if hasSpecificFiles(path, "_test.go") {
 			resultFile := getCoverageResultFilePath(path)
 			//go test to generate .out file for analysis
