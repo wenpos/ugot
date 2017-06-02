@@ -1,8 +1,7 @@
-package util
+package main
 
 import (
 	"ugot/logger"
-
 	"io/ioutil"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"strconv"
 	"unicode"
-	"github.com/wenpos/ugot/util"
 )
 
 //注意关闭资源，使用defer
@@ -32,7 +30,47 @@ func ReadFileWithIoUtil(file_path string) {
 	fmt.Println(string(data))
 }
 
-func PrintFileByLine(file_path string){
+func ExecudeSpecifiedFiles(file_path string) {
+	data, err := ioutil.ReadFile(PathAdapterSystem(file_path))
+	check(err, file_path)
+	lines := strings.Split(string(data), "\n")
+	for i, _ := range lines {
+		sub_line := strings.Split(lines[i], ":")[0]
+		if strings.Contains(PathAdapterSystem(xfiles), sub_line) {
+			lines[i] = ""
+		}
+	}
+	var line = ""
+	for i, _ := range lines {
+		if lines[i] != "" {
+			line = line + lines[i]+"\n"
+		}
+	}
+	//output := strings.Join(lines, "\n")
+	err = ioutil.WriteFile(file_path, []byte(line), 0644)
+	if err != nil {
+		logger.GetLogger().Error(err)
+	}
+}
+
+func CleanEmptyLinesInFile(file_path string) error {
+	f, err := os.Open(file_path)
+	defer f.Close()
+	check(err, file_path)
+	b := bufio.NewReader(f)
+	w := bufio.NewWriter(f)
+	line, err := b.ReadString('\n')
+	for ; err == nil; line, err = b.ReadString('\n') {
+		if len(line) != 0 && line != "\n" {
+			fmt.Print(len(line))
+			fmt.Print(line)
+			_, err = w.WriteString(line)
+		}
+	}
+	return err
+}
+
+func PrintFileByLine(file_path string) {
 	f, err := os.Open(file_path)
 	defer f.Close()
 	check(err, file_path)
@@ -99,7 +137,7 @@ func GetGoCovResultTotalCoverage(file_path string) float64 {
 
 }
 
-func ParseAnalysisFile(file_path string)  {
+func ParseAnalysisFile(file_path string) {
 	f, err := os.Open(file_path)
 	defer f.Close()
 	check(err, file_path)
@@ -108,7 +146,7 @@ func ParseAnalysisFile(file_path string)  {
 	totalLines := 0
 	totalCoveredLines := 0
 	for ; err == nil; line, err = b.ReadString('\n') {
-		if len(line) != 0 && strings.Contains(line, util.PathAdapterSystem("/")) {
+		if len(line) != 0 && strings.Contains(line, PathAdapterSystem("/")) {
 			parse := strings.Split(line, ":")
 			tempTotal, _ := strconv.Atoi(parse[1])
 			totalLines = totalLines + tempTotal
@@ -117,9 +155,9 @@ func ParseAnalysisFile(file_path string)  {
 		}
 	}
 	coverage := float64(totalCoveredLines) * float64(100) / float64(totalLines)
-	WriteStringFile(file_path,"total_lines:"+strconv.Itoa(totalLines))
-	WriteStringFile(file_path,"total_covered_lines:"+strconv.Itoa(totalCoveredLines))
-	WriteStringFile(file_path,"total_coverage:"+strconv.FormatFloat(coverage, 'f', 1, 64) + "%")
+	WriteStringFile(file_path, "total_lines:"+strconv.Itoa(totalLines))
+	WriteStringFile(file_path, "total_covered_lines:"+strconv.Itoa(totalCoveredLines))
+	WriteStringFile(file_path, "total_coverage:"+strconv.FormatFloat(coverage, 'f', 1, 64)+"%")
 	fmt.Println("[package]:[total.lines]:[total.covered.lines]:[package.coverage]:")
 	PrintFileByLine(file_path)
 }

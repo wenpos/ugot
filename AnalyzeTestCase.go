@@ -12,14 +12,13 @@ import (
 	"strconv"
 	"bytes"
 	"log"
-	"ugot/util"
 )
 
 func TestAndAnalyzePackageCoverage(path string) {
 	resultFile := getCoverageResultFilePath(PathAdapterSystem(path))
 	os.Remove(resultFile)
 	filepath.Walk(PathAdapterSystem(path), analyzePackageCoverage)
-	util.ParseAnalysisFile(PathAdapterSystem(resultFile))
+	ParseAnalysisFile(PathAdapterSystem(resultFile))
 	CleanAnalyzedPackageFile(PathAdapterSystem(path))
 }
 
@@ -44,8 +43,8 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 	if info.IsDir() {
 		//exclude specific packages
 		packge_path := SplitPath(path, "src/")[1]
-		if len(xpkg) != 0 && strings.Contains(xpkg, ",") {
-			excludes := SplitPath(xpkg, ",")
+		if len(xpkgs) != 0 && strings.Contains(xpkgs, ",") {
+			excludes := SplitPath(xpkgs, ",")
 			for _, v := range excludes {
 				if packge_path == PathAdapterSystem(v) {
 					fmt.Println("Exclude package: " + packge_path)
@@ -53,8 +52,8 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 				}
 			}
 		}
-		if (len(xpkg) != 0 && !strings.Contains(xpkg, ",")) {
-			if packge_path == PathAdapterSystem(xpkg) {
+		if (len(xpkgs) != 0 && !strings.Contains(xpkgs, ",")) {
+			if packge_path == PathAdapterSystem(xpkgs) {
 				fmt.Println("Exclude package: " + packge_path)
 				return filepath.SkipDir
 			}
@@ -64,6 +63,9 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 			resultFile := getCoverageResultFilePath(path)
 			//go test to generate .out file for analysis
 			execGoTestCoverProfile(path, info.Name())
+			//exclude test files
+			ExecudeSpecifiedFiles(path+"/"+info.Name()+".out")
+			//analyze cover profile
 			analyzeCoverProfile(path, info, resultFile)
 		}
 	}
@@ -73,15 +75,15 @@ func analyzePackageCoverage(path string, info os.FileInfo, err error) error {
 func analyzeCoverProfile(path string, info os.FileInfo, resultFile string) {
 	if hasSpecificFiles(path, ".out") {
 		//return code line count of current package
-		_, packageLineCountStr := util.GetGoFilesLineCount(PathAdapterSystem(path+"/"+info.Name()+".out"), info.Name())
+		_, packageLineCountStr := GetGoFilesLineCount(PathAdapterSystem(path+"/"+info.Name()+".out"), info.Name())
 		//go tool generate every file coverage and write the result for analysis
 		execGoToolCover(path, info.Name())
 		packageLineCount := float64(packageLineCountStr["total"])
 		if hasSpecificFiles(path, ".result") {
 			//every package coverage
-			packageLineCoverage := util.GetGoCovResultTotalCoverage(PathAdapterSystem(path + "/" + info.Name() + ".result"))
+			packageLineCoverage := GetGoCovResultTotalCoverage(PathAdapterSystem(path + "/" + info.Name() + ".result"))
 			coveredLineCount := packageLineCount * (packageLineCoverage / 100)
-			util.WriteStringFile(resultFile, SplitPath(path, "src/")[1] + ":"+
+			WriteStringFile(resultFile, SplitPath(path, "src/")[1] + ":"+
 				strconv.Itoa(packageLineCountStr["total"])+ ":"+
 				strconv.FormatFloat(coveredLineCount, 'f', 0, 64)+ ":"+
 				strconv.FormatFloat(packageLineCoverage, 'f', 1, 64)+ "%")
@@ -112,13 +114,12 @@ func executeGoTestProfileCmd(cmdName string, cmdExePath string, args ... string)
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = cmdExePath
 	output, err := cmd.CombinedOutput()
-	if xerror {
+	if xerrors {
 		printIgnoreIfTestFails(output)
 	} else {
 		printPanicIfTestFails(output, cmdExePath)
 	}
 	if err != nil {
-		//logger.CheckError(err, "Failed to execute command ["+cmdName+"] ")
 		return false
 	}
 	return true
@@ -128,7 +129,7 @@ func execGoToolCmdAndWriteResultAfterClean(cmdName string, cmdExcPath string, fi
 	cmd := exec.Command(cmdName, args...)
 	cmd.Dir = cmdExcPath
 	output, err := cmd.CombinedOutput()
-	util.WriteBytesFileAfterClean(file_path, output)
+	WriteBytesFileAfterClean(file_path, output)
 	printOutput(output)
 	if err != nil {
 		logger.CheckError(err, "Failed to execute command ["+cmdName+"] ")
